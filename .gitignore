@@ -1,0 +1,11 @@
+.venv/
+.ven/
+__pycache__/
+.pytest_cache/
+# MediaPipe model files are downloaded automatically (large)
+models/*.task
+models/*.part
+# your recorded data + trained model (personal, re-creatable)
+data/
+models/classifier.joblib
+screenshots/
