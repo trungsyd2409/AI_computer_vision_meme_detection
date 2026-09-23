@@ -10,14 +10,19 @@ def p(none, hamster, shocked):
 
 
 def make(**kw):
-    return MatchStabilizer(LABELS, threshold=0.7, window=1, hold_frames=3,
-                           release_margin=0.1, **kw)
+    opts = dict(threshold=0.7, alpha=1.0, hold_frames=2, release_frames=3, release_margin=0.1)
+    opts.update(kw)
+    return MatchStabilizer(LABELS, **opts)
 
 
-def test_needs_hold_frames_before_showing():
+def test_shows_after_hold_frames():
     s = make()
     assert s.update(p(0.1, 0.9, 0.0)) is None
-    assert s.update(p(0.1, 0.9, 0.0)) is None
+    assert s.update(p(0.1, 0.9, 0.0)) == "hamster"
+
+
+def test_hold_one_is_instant():
+    s = make(hold_frames=1)
     assert s.update(p(0.1, 0.9, 0.0)) == "hamster"
 
 
@@ -33,33 +38,54 @@ def test_none_label_never_shows():
         assert s.update(p(0.95, 0.05, 0.0)) is None
 
 
-def test_hysteresis_keeps_meme_then_releases():
+def test_single_bad_frame_does_not_hide():
     s = make()
-    for _ in range(3):
-        s.update(p(0.1, 0.9, 0.0))
-    assert s.update(p(0.35, 0.65, 0.0)) == "hamster"   # 0.65 >= 0.7-0.1
-    assert s.update(p(0.5, 0.5, 0.0)) is None          # dropped below 0.6
+    s.update(p(0.1, 0.9, 0.0)); s.update(p(0.1, 0.9, 0.0))
+    assert s.update(p(0.9, 0.1, 0.0)) == "hamster"     # 1 bad frame
+    assert s.update(p(0.1, 0.9, 0.0)) == "hamster"
 
 
-def test_switching_meme_needs_hold_again():
+def test_hides_after_release_frames():
     s = make()
-    for _ in range(3):
-        s.update(p(0.1, 0.9, 0.0))
-    assert s.update(p(0.0, 0.1, 0.9)) is None
-    assert s.update(p(0.0, 0.1, 0.9)) is None
+    s.update(p(0.1, 0.9, 0.0)); s.update(p(0.1, 0.9, 0.0))
+    assert s.update(p(0.9, 0.1, 0.0)) == "hamster"
+    assert s.update(p(0.9, 0.1, 0.0)) == "hamster"
+    assert s.update(p(0.9, 0.1, 0.0)) is None
+
+
+def test_hysteresis_margin_keeps_meme():
+    s = make()
+    s.update(p(0.1, 0.9, 0.0)); s.update(p(0.1, 0.9, 0.0))
+    for _ in range(5):
+        assert s.update(p(0.35, 0.65, 0.0)) == "hamster"   # 0.65 >= 0.7 - 0.1
+
+
+def test_switch_to_other_meme_fast():
+    s = make()
+    s.update(p(0.1, 0.9, 0.0)); s.update(p(0.1, 0.9, 0.0))
+    assert s.update(p(0.0, 0.1, 0.9)) == "hamster"
     assert s.update(p(0.0, 0.1, 0.9)) == "shocked"
 
 
-def test_no_person_resets():
+def test_nobody_visible_hides_after_release_frames():
     s = make()
-    for _ in range(3):
-        s.update(p(0.1, 0.9, 0.0))
+    s.update(p(0.1, 0.9, 0.0)); s.update(p(0.1, 0.9, 0.0))
+    assert s.update(None) == "hamster"      # short detection drop-out is ignored
+    assert s.update(None) == "hamster"
     assert s.update(None) is None
-    assert s.update(p(0.1, 0.9, 0.0)) is None
 
 
-def test_smoothing_window_filters_single_spike():
-    s = MatchStabilizer(LABELS, threshold=0.7, window=5, hold_frames=1)
-    for _ in range(4):
-        s.update(p(0.9, 0.1, 0.0))
-    assert s.update(p(0.0, 1.0, 0.0)) is None  # one spike is averaged away
+def test_ema_latency_default_settings():
+    """With default alpha=0.6, hold=2: a clear pose shows on the 3rd frame."""
+    s = make(alpha=0.6)
+    s.update(p(1.0, 0.0, 0.0))                     # neutral before
+    out = [s.update(p(0.0, 1.0, 0.0)) for _ in range(4)]
+    assert out.index("hamster") <= 2
+
+
+def test_ema_filters_single_spike():
+    s = make(alpha=0.6, hold_frames=2)
+    for _ in range(5):
+        s.update(p(1.0, 0.0, 0.0))
+    assert s.update(p(0.0, 1.0, 0.0)) is None
+    assert s.update(p(1.0, 0.0, 0.0)) is None

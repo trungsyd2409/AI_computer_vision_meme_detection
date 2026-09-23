@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 from meme_cam import config
-from meme_cam.camera import Layout, create_window, open_camera, read_mirrored, window_closed
+from meme_cam.camera import CameraStream, Layout, create_window, window_closed
 from meme_cam.features import FEATURE_DIM, FEATURE_NAMES, FeatureExtractor
 from meme_cam.memes import load_memes
 from meme_cam.ui import GREY, RED, WHITE, YELLOW, draw_landmarks, meme_panel, put_text, side_by_side
@@ -74,7 +74,7 @@ def main() -> None:
         print(f"[warn] no images found in {config.MEMES_DIR}. Add meme images first.")
 
     df = load_dataset()
-    cap = open_camera(args.camera, args.cam_width, args.cam_height)
+    cam = CameraStream(args.camera, args.cam_width, args.cam_height)
     extractor = FeatureExtractor()
     create_window(WINDOW)
     layout = None
@@ -85,10 +85,11 @@ def main() -> None:
     rows: list[np.ndarray] = []
     session = ""
     sessions_done: list[str] = []
+    fid = 0
 
     try:
         while True:
-            frame = read_mirrored(cap)
+            fid, frame = cam.read(fid)
             if frame is None:
                 print("Camera frame not available.")
                 break
@@ -165,7 +166,7 @@ def main() -> None:
                 break
     finally:
         extractor.close()
-        cap.release()
+        cam.release()
         cv2.destroyAllWindows()
 
     if not df.empty:

@@ -45,7 +45,7 @@ def draw_landmarks(frame: np.ndarray, info: FrameInfo) -> None:
 
 def draw_debug(frame: np.ndarray, info: FrameInfo,
                top: list[tuple[str, float]], shown: str | None,
-               threshold: float, fps: float) -> None:
+               threshold: float, fps: float, extra: list[str] | None = None) -> None:
     lines: list[tuple[str, tuple]] = []
     lines.append((f"match: {shown or '-'}", YELLOW if shown else GREY))
     for label, p in top:
@@ -56,6 +56,8 @@ def draw_debug(frame: np.ndarray, info: FrameInfo,
         lines.append((f"{name}: {v:.2f}", GREEN))
     lines.append((f"hands: {', '.join(info.hands_px) or 'none'}", GREEN))
     lines.append((f"fps: {fps:.0f}", WHITE))
+    for text in extra or []:
+        lines.append((text, WHITE))
     y = 28
     for text, color in lines:
         put_text(frame, text, (12, y), color)

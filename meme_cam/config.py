@@ -39,6 +39,10 @@ SCREEN_FILL = 0.92         # never use more than this part of the screen
 
 # Realtime matching defaults (can be changed with CLI flags / keys in app.py)
 DEFAULT_THRESHOLD = 0.70   # minimum smoothed probability to show a meme
-SMOOTH_WINDOW = 8          # average probabilities over the last N frames
-HOLD_FRAMES = 5            # a label must win N frames in a row before it is shown
-RELEASE_MARGIN = 0.10      # hysteresis: hide when prob < threshold - margin
+SMOOTH_ALPHA = 0.6         # EMA weight of the newest frame (1.0 = no smoothing)
+HOLD_FRAMES = 2            # frames a meme must win before it is shown
+RELEASE_FRAMES = 4         # frames below (threshold - margin) before it is hidden
+RELEASE_MARGIN = 0.10      # hysteresis margin
+
+# Speed
+PROCESS_WIDTH = 640        # frames are downscaled to this width for MediaPipe

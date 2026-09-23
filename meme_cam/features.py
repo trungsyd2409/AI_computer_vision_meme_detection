@@ -21,6 +21,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from . import config
@@ -195,7 +196,7 @@ class FrameInfo:
 class FeatureExtractor:
     """Runs Face + Hand landmarkers in VIDEO mode on BGR frames."""
 
-    def __init__(self, num_hands: int = 2):
+    def __init__(self, num_hands: int = 2, process_width: int = config.PROCESS_WIDTH):
         import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions, vision
 
@@ -217,6 +218,8 @@ class FeatureExtractor:
                 num_hands=num_hands,
             ))
         self._ts = 0
+        self.process_width = process_width
+        self.last_ms = 0.0          # time spent in MediaPipe for the last frame
 
     # model_asset_buffer (bytes) is used instead of a path so that folders with
     # non-ASCII characters on Windows do not break MediaPipe.
@@ -228,11 +231,19 @@ class FeatureExtractor:
     def process(self, frame_bgr: np.ndarray) -> FrameInfo:
         h, w = frame_bgr.shape[:2]
         aspect = w / h
-        rgb = np.ascontiguousarray(frame_bgr[:, :, ::-1])
+        t0 = time.perf_counter()
+        # MediaPipe returns normalised (0..1) coordinates, so a smaller copy of
+        # the frame gives the same landmarks but runs ~2-3x faster.
+        small = frame_bgr
+        if self.process_width and w > self.process_width:
+            small = cv2.resize(frame_bgr, (self.process_width, round(h * self.process_width / w)),
+                               interpolation=cv2.INTER_AREA)
+        rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
         image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
         ts = self._next_ts()
         face_res = self._face.detect_for_video(image, ts)
         hand_res = self._hands.detect_for_video(image, ts)
+        self.last_ms = (time.perf_counter() - t0) * 1000
 
         info = FrameInfo(features=np.zeros(FEATURE_DIM, dtype=np.float32))
 

@@ -81,6 +81,7 @@ python app.py --threshold 0.8 --camera 1
 | Phím | Tác dụng |
 |---|---|
 | `+` / `-` | tăng / giảm ngưỡng |
+| `[` / `]` | giảm / tăng số frame cần giữ trước khi hiện meme |
 | `D` | bật / tắt chữ debug |
 | `S` | chụp màn hình vào `screenshots/` |
 | `Q` / `ESC` | thoát |
@@ -90,12 +91,19 @@ luôn đúng tỷ lệ (chỉ thu nhỏ đều 2 chiều). Cửa sổ tự thu n
 Đổi kích thước: `python app.py --height 480`. Khi chạy, dòng `Camera 0: 1280x720 (aspect 1.78)` cho biết độ phân giải thật;
 nếu hình vẫn trông méo, webcam có thể không hỗ trợ 16:9 → thử `--cam-width 640 --cam-height 480`.
 
-**Cách quyết định có hiện meme không** (`meme_cam/stabilizer.py`):
+**Cách quyết định có hiện meme không** (`meme_cam/stabilizer.py`) – "hiện nhanh, tắt chậm":
 
-1. Lấy trung bình xác suất của 8 frame gần nhất (chống nhiễu).
-2. Meme chỉ hiện khi: nhãn cao nhất **không phải `_none`**, xác suất ≥ ngưỡng (mặc định 0.70), và thắng **5 frame liên tiếp**.
-3. Meme đang hiện sẽ tắt khi xác suất < ngưỡng − 0.10 (hysteresis, tránh nhấp nháy).
-4. Không thấy mặt/tay → không hiện gì.
+1. Làm mượt xác suất bằng EMA (`alpha = 0.6`, 1.0 = không làm mượt).
+2. Meme hiện khi nhãn cao nhất **không phải `_none`**, xác suất ≥ ngưỡng (0.70) trong **2 frame liên tiếp** (~80 ms ở 25 fps).
+3. Meme chỉ tắt khi xác suất < ngưỡng − 0.10 trong **4 frame liên tiếp** → 1 frame nhận diện sai không làm meme nhấp nháy.
+4. Mất mặt/tay quá 4 frame → không hiện gì.
+
+**Giảm độ trễ (delay):**
+
+- Camera được đọc trong 1 thread riêng và chỉ giữ **frame mới nhất** (bỏ frame cũ trong hàng đợi của OpenCV).
+- MediaPipe chạy trên ảnh thu nhỏ 640px (`--process-width`), nhanh hơn ~2–3 lần mà landmark gần như không đổi.
+- Debug hiển thị `fps` và `mediapipe: xx ms` để biết đang chậm ở đâu.
+- Muốn tức thì nhất: `python app.py --hold 1 --alpha 1.0` (có thể nhấp nháy hơn). Khi chạy bấm `[` / `]` để giảm / tăng số frame giữ.
 
 Chỉnh mặc định trong `meme_cam/config.py`.
 

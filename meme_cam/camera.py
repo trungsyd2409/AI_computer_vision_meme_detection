@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
 
 import cv2
 
@@ -35,6 +37,54 @@ def read_mirrored(cap: cv2.VideoCapture):
     if not ok:
         return None
     return cv2.flip(frame, 1)
+
+
+class CameraStream:
+    """Reads the webcam in a background thread and keeps ONLY the newest frame.
+
+    Without this, OpenCV keeps a queue of old frames: when processing is slower
+    than the camera (e.g. 20 fps vs 30 fps) you always see a frame from the
+    past, so the picture (and the meme) feels delayed. Here old frames are
+    simply dropped.
+    """
+
+    def __init__(self, index: int = config.CAMERA_INDEX,
+                 width: int = config.CAMERA_WIDTH,
+                 height: int = config.CAMERA_HEIGHT):
+        self.cap = open_camera(index, width, height)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # ignored by some drivers, thread handles it
+        self._cond = threading.Condition()
+        self._frame = None
+        self._id = 0
+        self._running = True
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def _loop(self) -> None:
+        while self._running:
+            ok, frame = self.cap.read()
+            if not ok:
+                time.sleep(0.01)
+                continue
+            with self._cond:
+                self._frame = frame
+                self._id += 1
+                self._cond.notify_all()
+
+    def read(self, last_id: int = 0, timeout: float = 2.0):
+        """Wait for a frame newer than `last_id`. Returns (id, mirrored frame) or (id, None)."""
+        with self._cond:
+            ok = self._cond.wait_for(lambda: self._id != last_id and self._frame is not None,
+                                     timeout=timeout)
+            if not ok:
+                return last_id, None
+            frame, fid = self._frame, self._id
+        return fid, cv2.flip(frame, 1)
+
+    def release(self) -> None:
+        self._running = False
+        self._thread.join(timeout=1.0)
+        self.cap.release()
 
 
 def screen_size() -> tuple[int, int] | None:
