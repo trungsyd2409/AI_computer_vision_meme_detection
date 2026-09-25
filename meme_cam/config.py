@@ -5,7 +5,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-MEMES_DIR = ROOT / "memes"          # put meme images here: <label>.jpg / .png ...
+# put meme images here: <label>.jpg / .png ...
+MEMES_DIR = ROOT / "memes"
 DATA_DIR = ROOT / "data"
 DATASET_CSV = DATA_DIR / "dataset.csv"
 MODELS_DIR = ROOT / "models"
@@ -38,10 +39,12 @@ MEME_PANEL_RATIO = 0.8     # meme panel width = DISPLAY_HEIGHT * ratio
 SCREEN_FILL = 0.92         # never use more than this part of the screen
 
 # Realtime matching defaults (can be changed with CLI flags / keys in app.py)
-DEFAULT_THRESHOLD = 0.70   # minimum smoothed probability to show a meme
-SMOOTH_ALPHA = 0.6         # EMA weight of the newest frame (1.0 = no smoothing)
+DEFAULT_THRESHOLD = 0.50   # minimum smoothed probability to show a meme
+# EMA weight of the newest frame (1.0 = no smoothing)
+SMOOTH_ALPHA = 0.6
 HOLD_FRAMES = 2            # frames a meme must win before it is shown
-RELEASE_FRAMES = 4         # frames below (threshold - margin) before it is hidden
+# frames below (threshold - margin) before it is hidden
+RELEASE_FRAMES = 4
 RELEASE_MARGIN = 0.10      # hysteresis margin
 
 # Speed
